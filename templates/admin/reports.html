@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports - G-TRUCKS</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.10.0/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/admin.css') }}">
+    <style>
+        /* Logo styling for sidebar - keeping the container but removing the logo itself */
+        .sidebar-logo-container {
+            padding: 1rem 0;
+            text-align: center;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-fluid">   
+        <div class="row">
+            <!-- Sidebar -->
+            <nav id="sidebar" class="col-md-3 col-lg-2 d-md-block bg-dark sidebar collapse">
+                <div class="position-sticky pt-3">
+                    <div class="sidebar-logo-container">
+                         <img src="{{ url_for('static', filename='img/wastelogo.webp') }}" alt="G-TRUCKS Logo" height="50">
+                        <h5 class="text-white">Admin Panel</h5>
+                    </div>
+                    <ul class="nav flex-column">
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_dashboard') }}">
+                                <i class="bi bi-speedometer2 me-2"></i> Dashboard
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_barangays') }}">
+                                <i class="bi bi-geo-alt me-2"></i> Barangay Management
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_collectors') }}">
+                                <i class="bi bi-truck me-2"></i> Collector Management
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_schedules') }}">
+                                <i class="bi bi-calendar-event me-2"></i> Scheduling
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_users') }}">
+                                <i class="bi bi-people me-2"></i> User Management
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ url_for('admin_tracking') }}">
+                                <i class="bi bi-map me-2"></i> Live Tracking
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link active" href="{{ url_for('admin_reports') }}">
+                                <i class="bi bi-file-earmark-text me-2"></i> Reports
+                            </a>
+                        </li>
+                        <li class="nav-item mt-5">
+                            <a class="nav-link" href="{{ url_for('logout') }}">
+                                <i class="bi bi-box-arrow-right me-2"></i> Logout
+                            </a>
+                        </li>
+                    </ul>
+                </div>
+            </nav>
+
+            <!-- Main content -->
+            <main class="col-md-9 ms-sm-auto col-lg-10 px-md-4">
+                <div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+                    <h1 class="h2">Reports & Analytics</h1>
+                    <div class="btn-toolbar mb-2 mb-md-0">
+                        <div class="btn-group me-2">
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="exportPDF">
+                                <i class="bi bi-file-pdf"></i> Export PDF
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="exportCSV">
+                                <i class="bi bi-file-excel"></i> Export CSV
+                            </button>
+                            <button type="button" class="btn btn-sm btn-outline-secondary" id="printReport">
+                                <i class="bi bi-printer"></i> Print
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="row">
+                </div>
+
+                <!-- Recent Reports Table (like collector view) -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Collectors Reports</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Date</th>
+                                        <th>Type</th>
+                                        <th>Collector</th>
+                                        <th>Barangay</th>
+                                        <th>Location</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for report in reports %}
+                                    <tr>
+                                        <td>{{ report.date.strftime('%Y-%m-%d') }}</td>
+                                        <td>{{ report.report_type.replace('_', ' ').title() }}</td>
+                                        <td>{{ report.collector.user.username if report.collector and report.collector.user else 'Unknown' }}</td>
+                                        <td>{{ report.collector.assigned_barangay.name if report.collector and report.collector.assigned_barangay else 'Unknown' }}</td>
+                                        <td>{{ report.location }}</td>
+                                        <td>
+                                            {% if report.status == 'pending' %}
+                                                <span class="badge bg-warning">Pending</span>
+                                            {% elif report.status == 'approved' %}
+                                                <span class="badge bg-success">Approved</span>
+                                            {% else %}
+                                                <span class="badge bg-danger">Rejected</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <button class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#reportModal{{ report.id }}">
+                                                View
+                                            </button>
+                                            <form action="{{ url_for('admin_update_report_status') }}" method="POST" class="d-inline">
+                                                <input type="hidden" name="report_id" value="{{ report.id }}">
+                                                <button type="submit" name="status" value="approved" class="btn btn-sm btn-success">Approve</button>
+                                                <button type="submit" name="status" value="rejected" class="btn btn-sm btn-danger">Reject</button>
+                                                <button type="submit" name="status" value="pending" class="btn btn-sm btn-warning">Pending</button>
+                                            </form>
+                                        </td>
+                                    </tr>
+                                    <!-- Report Modal -->
+                                    <div class="modal fade" id="reportModal{{ report.id }}" tabindex="-1">
+                                        <div class="modal-dialog">
+                                            <div class="modal-content">
+                                                <div class="modal-header">
+                                                    <h5 class="modal-title">Report Details</h5>
+                                                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                                                </div>
+                                                <div class="modal-body">
+                                                    <p><strong>Date:</strong> {{ report.date.strftime('%Y-%m-%d') }}</p>
+                                                    <p><strong>Type:</strong> {{ report.report_type.replace('_', ' ').title() }}</p>
+                                                    <p><strong>Collector:</strong> {{ report.collector.user.username if report.collector and report.collector.user else 'Unknown' }}</p>
+                                                    <p><strong>Barangay:</strong> {{ report.collector.assigned_barangay.name if report.collector and report.collector.assigned_barangay else 'Unknown' }}</p>
+                                                    <p><strong>Location:</strong> {{ report.location }}</p>
+                                                    <p><strong>Status:</strong> 
+                                                        {% if report.status == 'pending' %}
+                                                            <span class="badge bg-warning">Pending</span>
+                                                        {% elif report.status == 'approved' %}
+                                                            <span class="badge bg-success">Approved</span>
+                                                        {% else %}
+                                                            <span class="badge bg-danger">Rejected</span>
+                                                        {% endif %}
+                                                    </p>
+                                                    <p><strong>Description:</strong></p>
+                                                    <p>{{ report.description }}</p>
+                                                    {% if report.image_path %}
+                                                    <p><strong>Image:</strong></p>
+                                                    <img src="{{ url_for('static', filename='uploads/reports/' + report.image_path) }}" 
+                                                         class="img-fluid" alt="Report Image">
+                                                    {% endif %}
+                                                </div>
+                                                <div class="modal-footer">
+                                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.6/dist/js/bootstrap.bundle.min.js" integrity="sha384-j1CDi7MgGQ12Z7Qab0qlWQ/Qqz24Gc6BM0thvEMVjHnfYGF0rmFCozFSxQBxwHKO" crossorigin="anonymous"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- jsPDF Core Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- jsPDF AutoTable plugin -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <script>
+        // Collection Trends Chart
+        const collectionTrendsCtx = document.getElementById('collectionTrendsChart').getContext('2d');
+        let collectionTrendsChart = new Chart(collectionTrendsCtx, {
+            type: 'line',
+            data: {
+                labels: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul'],
+                datasets: [{
+                    label: 'Scheduled Collections',
+                    data: [65, 59, 80, 81, 56, 55, 40],
+                    backgroundColor: 'rgba(78, 115, 223, 0.05)',
+                    borderColor: 'rgba(78, 115, 223, 1)',
+                    pointBackgroundColor: 'rgba(78, 115, 223, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(78, 115, 223, 1)',
+                    borderWidth: 2,
+                    tension: 0.3
+                }, {
+                    label: 'Completed Collections',
+                    data: [60, 55, 75, 80, 50, 52, 38],
+                    backgroundColor: 'rgba(28, 200, 138, 0.05)',
+                    borderColor: 'rgba(28, 200, 138, 1)',
+                    pointBackgroundColor: 'rgba(28, 200, 138, 1)',
+                    pointBorderColor: '#fff',
+                    pointHoverBackgroundColor: '#fff',
+                    pointHoverBorderColor: 'rgba(28, 200, 138, 1)',
+                    borderWidth: 2,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Collections by Barangay Chart
+        const collectionsByBarangayCtx = document.getElementById('collectionsByBarangayChart').getContext('2d');
+        let collectionsByBarangayChart = new Chart(collectionsByBarangayCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['District 1', 'District 2', 'District 3', 'District 4', 'District 5', 'District 6'],
+                datasets: [{
+                    data: [25, 20, 15, 18, 12, 10],
+                    backgroundColor: [
+                        '#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b', '#6f42c1'
+                    ],
+                    hoverOffset: 4
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // User Engagement Chart
+        const userEngagementCtx = document.getElementById('userEngagementChart').getContext('2d');
+        let userEngagementChart = new Chart(userEngagementCtx, {
+            type: 'bar',
+            data: {
+                labels: ['App Logins', 'Tracking Views', 'Notifications Read', 'Feedback Submitted', 'In-App Time'],
+                datasets: [{
+                    label: 'Engagement Metrics',
+                    data: [420, 385, 290, 120, 195],
+                    backgroundColor: [
+                        'rgba(78, 115, 223, 0.8)',
+                        'rgba(28, 200, 138, 0.8)',
+                        'rgba(54, 185, 204, 0.8)',
+                        'rgba(246, 194, 62, 0.8)',
+                        'rgba(231, 74, 59, 0.8)'
+                    ],
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true
+                    }
+                }
+            }
+        });
+
+        // Helper function to generate random data for chart updates
+        function getRandomData(count) {
+            return Array.from({ length: count }, () => Math.floor(Math.random() * 100));
+        }
+
+        // Function to update charts with new data (simulation)
+        function updateCharts() {
+            collectionTrendsChart.data.datasets[0].data = getRandomData(7);
+            collectionTrendsChart.data.datasets[1].data = getRandomData(7);
+            collectionTrendsChart.update();
+
+            collectionsByBarangayChart.data.datasets[0].data = getRandomData(6);
+            collectionsByBarangayChart.update();
+
+            userEngagementChart.data.datasets[0].data = getRandomData(5);
+            userEngagementChart.update();
+        }
+        
+        // Function to simulate updating table data
+        function updateTableData() {
+            const tableBody = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
+            tableBody.innerHTML = ''; // Clear existing data
+
+            const statuses = ['Completed', 'Delayed', 'Pending'];
+            const barangays = ['Brgy Alpha', 'Brgy Beta', 'Brgy Gamma', 'Brgy Delta', 'Brgy Epsilon'];
+            const collectors = ['Collector A', 'Collector B', 'Collector C'];
+
+            for (let i = 0; i < 5; i++) { // Add 5 new rows of dummy data
+                const row = tableBody.insertRow();
+                const randomStatus = statuses[Math.floor(Math.random() * statuses.length)];
+                const statusBadge = randomStatus === 'Completed' ? 'bg-success' : (randomStatus === 'Delayed' ? 'bg-warning' : 'bg-primary');
+                
+                row.insertCell().textContent = `2023-05-${String(Math.floor(Math.random() * 30) + 1).padStart(2, '0')}`;
+                row.insertCell().textContent = barangays[Math.floor(Math.random() * barangays.length)];
+                row.insertCell().textContent = collectors[Math.floor(Math.random() * collectors.length)];
+                row.insertCell().textContent = `${String(Math.floor(Math.random() * 4) + 8).padStart(2, '0')}:00`;
+                row.insertCell().textContent = `${String(Math.floor(Math.random() * 4) + 10).padStart(2, '0')}:30`;
+                row.insertCell().textContent = `2h ${Math.floor(Math.random()*50)+10}m`;
+                row.insertCell().innerHTML = `<span class="badge ${statusBadge}">${randomStatus}</span>`;
+                row.insertCell().textContent = `${Math.floor(Math.random() * 30) + 70}%`;
+            }
+        }
+
+
+        // Export buttons functionality
+        document.getElementById('exportPDF').addEventListener('click', function() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            let yPos = 20; // Initial Y position for content
+
+            doc.setFontSize(18);
+            doc.text("G-TRUCKS Admin Report", 105, yPos, { align: 'center' });
+            yPos += 10;
+
+            doc.setFontSize(12);
+            const reportDate = new Date().toLocaleDateString();
+            doc.text(`Report Generated: ${reportDate}`, 105, yPos, { align: 'center' });
+            yPos += 15;
+
+            // Add Filters Info
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const reportType = document.getElementById('reportType').selectedOptions[0].text;
+            doc.setFontSize(10);
+            doc.text("Filters Applied:", 14, yPos);
+            yPos += 6;
+            doc.text(`- Date Range: ${startDate || 'N/A'} to ${endDate || 'N/A'}`, 14, yPos);
+            yPos += 6;
+            doc.text(`- Report Type: ${reportType}`, 14, yPos);
+            yPos += 10;
+
+
+            // Function to add chart to PDF
+            function addChartToPdf(chartInstance, title, doc, y) {
+                return new Promise((resolve) => {
+                    doc.setFontSize(14);
+                    doc.text(title, 14, y);
+                    y += 8;
+                    const imgData = chartInstance.toBase64Image();
+                    // Calculate aspect ratio to fit width
+                    const imgProps = doc.getImageProperties(imgData);
+                    const pdfWidth = doc.internal.pageSize.getWidth() - 28; // Page width - margins
+                    const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+                    
+                    if (y + pdfHeight > doc.internal.pageSize.getHeight() - 20) { // Check if it fits
+                        doc.addPage();
+                        y = 20; // Reset yPos for new page
+                        doc.setFontSize(14);
+                        doc.text(title, 14, y);
+                        y += 8;
+                    }
+                    doc.addImage(imgData, 'PNG', 14, y, pdfWidth, pdfHeight);
+                    resolve(y + pdfHeight + 10); // Return new yPos
+                });
+            }
+
+            // Add charts to PDF
+            addChartToPdf(collectionTrendsChart, "Collection Trends", doc, yPos)
+                .then(newYPos => {
+                    yPos = newYPos;
+                    return addChartToPdf(collectionsByBarangayChart, "Collections by Barangay", doc, yPos);
+                })
+                .then(newYPos => {
+                    yPos = newYPos;
+                    return addChartToPdf(userEngagementChart, "User Engagement", doc, yPos);
+                })
+                .then(newYPos => {
+                    yPos = newYPos;
+                    // Add Collection Details Table
+                    doc.setFontSize(14);
+                    if (yPos + 20 > doc.internal.pageSize.getHeight() - 20) { // Check space for title
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    doc.text("Collection Details", 14, yPos);
+                    yPos += 8;
+
+                    doc.autoTable({
+                        html: '#dataTable',
+                        startY: yPos,
+                        theme: 'grid',
+                        headStyles: { fillColor: [22, 160, 133] },
+                        didDrawPage: function (data) {
+                            // Footer for each page of the table if needed
+                        }
+                    });
+                    
+                    doc.save('g-trucks_report.pdf');
+                    alert('PDF export initiated.');
+                })
+                .catch(error => {
+                    console.error("Error generating PDF: ", error);
+                    alert("Failed to generate PDF. Check console for errors.");
+                });
+        });
+
+        document.getElementById('exportCSV').addEventListener('click', function() {
+            const table = document.getElementById('dataTable');
+            let csv = [];
+            const rows = table.querySelectorAll('tr');
+            
+            for (const row of rows) {
+                const rowData = [];
+                const cols = row.querySelectorAll('td, th');
+                for (const col of cols) {
+                    // Escape commas and quotes in cell text
+                    let cellText = col.innerText.replace(/"/g, '""');
+                    if (cellText.includes(',')) {
+                        cellText = `"${cellText}"`;
+                    }
+                    rowData.push(cellText);
+                }
+                csv.push(rowData.join(','));
+            }
+
+            const csvContent = 'data:text/csv;charset=utf-8,' + csv.join('\n');
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement('a');
+            link.setAttribute('href', encodedUri);
+            link.setAttribute('download', 'collection_report.csv');
+            document.body.appendChild(link); // Required for FF
+            link.click();
+            document.body.removeChild(link);
+            alert('CSV export initiated.');
+        });
+
+        document.getElementById('printReport').addEventListener('click', function() {
+            window.print();
+        });
+
+        // Report filters form
+        document.getElementById('reportFilters').addEventListener('submit', function(e) {
+            e.preventDefault();
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+            const reportType = document.getElementById('reportType').value;
+
+            // Simulate fetching data and updating UI
+            console.log('Generating report with filters:', { startDate, endDate, reportType });
+            alert(`Generating report for type: ${reportType} from ${startDate || 'start'} to ${endDate || 'end'}. Chart and table data will be updated with new (simulated) values.`);
+            
+            // Update charts with new random data
+            updateCharts();
+            // Update table with new random data
+            updateTableData();
+        });
+    </script>
+</body>
+</html>
